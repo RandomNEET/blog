@@ -1,7 +1,7 @@
 ---
-title: Enable Secure Boot on NixOS with Lanzaboote and sbctl
+title: Enable Secure Boot on NixOS
 published: 2025-07-26
-description: Step-by-step guide to enabling Secure Boot on NixOS with Lanzaboote and sbctl.
+description: Enable Secure Boot on NixOS with Lanzaboote and sbctl.
 tags: [Linux, NixOS, Secure Boot]
 category: Linux
 draft: false

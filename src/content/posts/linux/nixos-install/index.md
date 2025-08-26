@@ -1,7 +1,7 @@
 ---
-title: Install NixOS with Encrypted Btrfs and In-RAM Root
+title: Install NixOS
 published: 2025-07-22
-description: How to set up NixOS with full-disk encryption on Btrfs and a RAM-based root.
+description: Install NixOS with full-disk encryption on Btrfs and a RAM-based root.
 image: ./cover.png
 tags: [Linux, NixOS, Installation, Filesystem, Encryption]
 category: Linux
