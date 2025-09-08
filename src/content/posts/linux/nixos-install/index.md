@@ -135,7 +135,7 @@ mount -t btrfs -o noatime,compress=zstd,subvol=@nix /dev/mapper/enc /mnt/nix
 ## 5.Mount the HOME partition subvolume
 
 ```sh
-mount -t btrfs -o compress=zstd,subvol=@home /dev/mapper/enc mnt/home
+mount -t btrfs -o noatime,compress=zstd,subvol=@home /dev/mapper/enc mnt/home
 ```
 
 ## 6.Mount the SNAPSHOTS partition subvolume
@@ -194,6 +194,7 @@ vim /mnt/etc/nixos/hardware-configuration.nix
     options = [
       "subvol=@home"
       "compress=zstd"
+      "noatime"
     ];
   };
 
