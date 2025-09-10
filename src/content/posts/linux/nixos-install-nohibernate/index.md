@@ -1,7 +1,7 @@
 ---
-title: Install NixOS
+title: Install NixOS with encrypted Btrfs and a IN-RAM root (without hibernation)
 published: 2025-07-22
-description: Install NixOS with full-disk encryption on Btrfs and a RAM-based root.
+description: This is how I installed NixOS on my desktop.
 image: ./cover.png
 tags: [Linux, NixOS, Installation, Filesystem, Encryption]
 category: Linux
@@ -141,7 +141,7 @@ mount -t btrfs -o noatime,compress=zstd,subvol=@home /dev/mapper/enc mnt/home
 ## 6.Mount the SNAPSHOTS partition subvolume
 
 ```sh
-mount -t btrfs -o noatime,compress=zstd,subvol=@home/.snapshots /dev/sdXZ /mnt/home/.snapshots
+mount -t btrfs -o noatime,compress=zstd,subvol=@home/.snapshots /dev/mapper/enc /mnt/home/.snapshots
 ```
 
 ## 7.Mount the SWAP partition (optional)

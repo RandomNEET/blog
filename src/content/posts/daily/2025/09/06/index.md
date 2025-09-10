@@ -1,7 +1,7 @@
 ---
-title: Unable to Start VMs After Flake Update
+title: Unable to start VMs after flake update
 published: 2025-09-06
-description: VMs Fail to Start Due to Changed QEMU Firmware Path After Flake Update.
+description: VMs fail to start due to changed QEMU firmware path after flake update.
 image: ./cover.png
 tags: [Daily, NixOS, Virtualization]
 category: Daily

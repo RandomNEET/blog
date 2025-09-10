@@ -1,7 +1,7 @@
 ---
 title: TProxy on Linux with Xray
 published: 2025-08-30
-description: So GFW, Love you :)
+description: So GFW, love you :)
 tags: [Linux, Proxy, TProxy, Xray, Iptables]
 category: Linux
 draft: false
