@@ -1,44 +1,12 @@
 ---
-title: Install NixOS with encrypted Btrfs and a IN-RAM root (without hibernation)
-published: 2025-07-22
-description: This is how I installed NixOS on my desktop.
+title: Install NixOS with encrypted Btrfs and a IN-RAM root (with hibernation)
+published: 2025-09-10
+description: This is how I installed NixOS on my laptop.
 image: ./cover.png
 tags: [Linux, NixOS, Installation, Filesystem, Encryption]
 category: Linux
 draft: false
 ---
-
-# 0. Pre-installation
-
-## 1.Connect to the internet
-
-- Generate configuration file
-
-```sh
-wpa_passphrase "WiFi_SSID" "WiFi_PASSWORD" | tee /etc/whatever.conf
-```
-
-- Check the device name
-
-```sh
-ip a
-```
-
-- Connect to the network
-
-```sh
-wpa_supplicant -B -i "devicename" -c /etc/whatever.conf
-```
-
-## 2.Proxy (optional)
-
-```sh
-nix-shell -p xray
-xray run -c /path/to/config.json
-export http_proxy=http://127.0.0.1:port
-export https_proxy=http://127.0.0.1:port
-export ALL_PROXY=socks5h://127.0.0.1:port
-```
 
 # 1. Format and partition
 
@@ -57,37 +25,52 @@ parted /dev/sdX set 1 boot on
 mkfs.fat -F 32 -n UEFI /dev/sdXY
 ```
 
-## 3.Create the SWAP partition (which will be /dev/sdXW) (optional)
+## 3.Create an encrypted partition for LVM (which will be /dev/sdXZ)
 
 ```sh
-parted /dev/sdX mkpart swap linux-swap 512MiB 4.5GiB
-mkswap -L SWAP /dev/sdXW
+parted /dev/sdX mkpart primary 512MiB 100%
+parted /dev/sdX set 2 lvm on
+cryptsetup --verify-passphrase -v luksFormat /dev/sdXZ
 ```
 
-## 4.Create the NIXOS BTRFS partition with encryption (which will be /dev/sdXZ)
+## 4.Create LVM volumes
 
 ```sh
-parted /dev/sdX mkpart nixos btrfs 4.5GiB 100%
-cryptsetup --verify-passphrase -v luksFormat /dev/sdXZ
 cryptsetup open /dev/sdXZ enc
-mkfs.btrfs -L NIXOS /dev/mapper/enc
+pvcreate /dev/mapper/enc
+vgcreate vg0 /dev/mapper/enc
+
+```
+
+## 5.Create the swap volume (which will be /dev/vg0/swap)
+
+```sh
+lvcreate -L 48G -n swap vg0
+mkswap -L SWAP /dev/vg0/swap
+```
+
+## 6.Create the NixOS Btrfs volume (which will be /dev/vg0/main)
+
+```sh
+lvcreate -l 100%FREE -n main vg0
+mkfs.btrfs -L NIXOS /dev/vg0/main
 ```
 
 # 2. Setup BTRFS subvolumes
 
-## 1.Mount the NIXOS partition
+## 1.Mount the NIXOS volume
 
 ```sh
-mount -t btrfs /dev/mapper/enc /mnt
+mount -t btrfs /dev/vg0/main /mnt
 ```
 
-## 2.Create the NIX partition subvolume
+## 2.Create the NIX subvolume
 
 ```sh
 btrfs subvolume create /mnt/@nix
 ```
 
-## 3.Create the HOME partition subvolume
+## 3.Create the HOME subvolume
 
 ```sh
 btrfs subvolume create /mnt/@home
@@ -99,7 +82,7 @@ btrfs subvolume create /mnt/@home
 btrfs subvolume create /mnt/@home/.snapshots
 ```
 
-## 5.Unmount the NIXOS partition
+## 5.Unmount the NIXOS volume
 
 ```sh
 umount /mnt
@@ -126,28 +109,28 @@ mkdir /mnt/home/.snapshots
 mount -t vfat -o defaults,noatime,fmask=0077,dmask=0077 /dev/sdXY /mnt/boot
 ```
 
-## 4.Mount the NIX partition subvolume
+## 4.Mount the NIX subvolume
 
 ```sh
-mount -t btrfs -o noatime,compress=zstd,subvol=@nix /dev/mapper/enc /mnt/nix
+mount -t btrfs -o noatime,compress=zstd,subvol=@nix /dev/vg0/main /mnt/nix
 ```
 
-## 5.Mount the HOME partition subvolume
+## 5.Mount the HOME subvolume
 
 ```sh
-mount -t btrfs -o noatime,compress=zstd,subvol=@home /dev/mapper/enc mnt/home
+mount -t btrfs -o noatime,compress=zstd,subvol=@home /dev/vg0/main /mnt/home
 ```
 
-## 6.Mount the SNAPSHOTS partition subvolume
+## 6.Mount the SNAPSHOTS subvolume
 
 ```sh
-mount -t btrfs -o noatime,compress=zstd,subvol=@home/.snapshots /dev/mapper/enc /mnt/home/.snapshots
+mount -t btrfs -o noatime,compress=zstd,subvol=@home/.snapshots /dev/vg0/main /mnt/home/.snapshots
 ```
 
-## 7.Mount the SWAP partition (optional)
+## 7.Mount swap
 
 ```sh
-swapon /dev/sdXW
+swapon /dev/vg0/swap
 ```
 
 # 4. Generate NixOS configs & install
@@ -167,6 +150,16 @@ vim /mnt/etc/nixos/hardware-configuration.nix
 - Example
 
 ```nix
+  fileSystems."/" = {
+    device = "none";
+    fsType = "tmpfs";
+    options = [
+      "noatime"
+      "size=3G"
+      "mode=755"
+    ];
+  };
+
   fileSystems."/boot" = {
     device = "/dev/disk/by-uuid/XXX";
     fsType = "vfat";
@@ -209,17 +202,19 @@ vim /mnt/etc/nixos/hardware-configuration.nix
   };
 
   swapDevices = [
-    {
-      device = "/dev/disk/by-partuuid/XXX";
-      randomEncryption.enable = true;
-    }
+    { device = "/dev/disk/by-uuid/XXX"; }
   ];
 ```
 
 > [!NOTE]
-> Don't try to hibernate when you have at least one swap partition with randomEncryption enabled! We have no way to set the partition into which hibernation image is saved, so if your image ends up on an encrypted one you would lose it!
+> Add the following line manually:
 >
-> Do not use /dev/disk/by-uuid/… or /dev/disk/by-label/… as your swap device when using randomEncryption as the UUIDs and labels will get erased on every boot when the partition is encrypted. Best to use /dev/disk/by-partuuid/…
+> ```nix
+> boot.initrd.luks.devices."enc".device = "/dev/disk/by-uuid/XXX";
+> ```
+>
+> Replace `XXX` with the actual UUID (check with `blkid /dev/sdXZ`).  
+> Without this line, the system will not boot.
 
 ## 3.Edit the configuration.nix file as needed
 
